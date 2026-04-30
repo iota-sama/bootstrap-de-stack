@@ -1,10 +1,17 @@
-# @description: OS provisioning, Idempotent and absolute directory hierarchies, and secure identity/secrets initialization.
-# @author: [Nishchay Dubey/iota-sama]
-# @version: 0.1.0-alpha
-
-
 #!/usr/bin/env bash
 set -euo pipefail
+
+# @description: OS provisioning, directory hierarchies, and secure secrets initialization.
+# @script: 00_base_setup.sh
+# @author: [Nishchay Dubey/iota-sama]
+
+
+# Ensure sudo is available
+if ! sudo -n true 2>/dev/null; then
+    echo "[ERROR] This script (00_base_setup.sh) requires sudo privileges to install system binaries."
+    echo "Please run this script via run_setup.sh or run 'sudo -v' before executing it directly."
+    exit 1
+fi
 
 export DEBIAN_FRONTEND=noninteractive
 
@@ -19,12 +26,13 @@ sudo apt install -y \
 
 # Create idempotent and absolute directory hierarchy
 PARENT_DIR="$(dirname "$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")")"
-STACK_HOME="${STACK_HOME:-"${PARENT_DIR}/de_stack_vm"}"
-mkdir -p "$STACK_HOME"/{bin,configs,data,logs,venvs,secrets}
+: "${LAB_HOME:="${PARENT_DIR}/de_lab_testing"}"
+export LAB_HOME
+mkdir -p "$LAB_HOME"/{bin,configs,data,logs,venvs,secrets}
 
 
 # Define the path for the DE Platform .gitignore
-PLATFORM_GITIGNORE="${STACK_HOME}/.gitignore"
+PLATFORM_GITIGNORE="${LAB_HOME}/.gitignore"
 
 if [[ ! -f "$PLATFORM_GITIGNORE" ]]; then
   cat > "$PLATFORM_GITIGNORE" << 'EOF'
@@ -41,8 +49,11 @@ else
 fi
 
 
+ENV_NAME="${ENV_NAME:-"unnamed_env"}"
+STACK_ID=$(uuidgen 2>/dev/null || echo "env-$(date +%s)")
+
 # Generate DE Platform Secrets File with Strict Permissions
-SECRET_FILE="$STACK_HOME/secrets/generated.env"
+: "${SECRET_FILE:="${LAB_HOME}/secrets/generated.env"}"
 if [[ ! -f "$SECRET_FILE" ]]; then
   umask 077
   cat > "$SECRET_FILE" <<EOF
@@ -59,11 +70,13 @@ if [[ ! -f "$SECRET_FILE" ]]; then
 # ==========================================================
 
 # Birth Certificate/System generated identifier of the DE Platform Environment
-GEN_DATE=$(date)
-STACK_ID=$(uuidgen 2>/dev/null || echo "env-$(date +%s)")
-ENV_TAG="${ENV_NAME:-"unnamed_env"}"
+GEN_DATE=$(date +"%Y-%m-%d-%H:%M:%S-%Z")
+ENV_NAME=$ENV_NAME
+STACK_ID=$STACK_ID
 EOF
 fi
 
+export STACK_ID ENV_NAME
+
 echo "Base setup done."
-echo "STACK_HOME=$STACK_HOME"
+echo "LAB_HOME=$LAB_HOME"
