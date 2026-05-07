@@ -4,6 +4,7 @@ set -euo pipefail
 # @description: Port allocation and discovery for the DE Lab Factory.
 #              Ensures idempotent port assignment across multiple labs.
 # @usage:       port_manager.sh --service <name> --lab-name <name> [--default-port <num>]
+# @utility:     port_manager.sh
 # @author:      [Nishchay Dubey/iota-sama]
 
 # -----------------------------------------------------------------------------
@@ -59,20 +60,11 @@ fi
 
 # Initialize registry with header if it doesn't exist
 if [[ ! -f "${REGISTRY_FILE}" ]]; then
-    echo "date,lab_name,port,service" > "${REGISTRY_FILE}"
+    echo "date,lab_name,service,port" > "${REGISTRY_FILE}"
 fi
 
 # -----------------------------------------------------------------------------
-# 3. CHECK IF PORT ALREADY ASSIGNED (Idempotency)
-# -----------------------------------------------------------------------------
-EXISTING_PORT=$(grep ",${LAB_NAME}," "${REGISTRY_FILE}" 2>/dev/null | grep ",${SERVICE}" | tail -1 | cut -d',' -f3 || true)
-
-if [[ -n "${EXISTING_PORT}" ]]; then
-    echo "${EXISTING_PORT}"
-    exit 0
-fi
-# -----------------------------------------------------------------------------
-# 4. HELPER: Check if port is actually in use on the system
+# 3. HELPER: Check if port is actually in use on the system
 # -----------------------------------------------------------------------------
 is_port_in_use() {
     local port="$1"
@@ -90,6 +82,30 @@ is_port_in_use() {
     
     return 1  # Port appears free (or can't check)
 }
+
+
+# -----------------------------------------------------------------------------
+# 4. CHECK IF PORT ALREADY ASSIGNED (Idempotency)
+# -----------------------------------------------------------------------------
+
+EXISTING_PORT=$(grep ",${LAB_NAME},${SERVICE}," "${REGISTRY_FILE}" 2>/dev/null | tail -1 | cut -d',' -f4 || true)
+
+if [[ -n "${EXISTING_PORT}" ]]; then
+    # The factory guarantees no zombie processes from previous runs.
+    # If a previous factory run started this service, it was stopped on exit — success or failure.
+    # Therefore, if the port is currently in use, it MUST be an external process.
+    # Hence, warn, remove the stale registration, and reassign.
+    if is_port_in_use "${EXISTING_PORT}"; then
+        echo "[WARN] Registered port ${EXISTING_PORT} for ${SERVICE} is in use." >&2
+        echo "[INFO] Removing stale registration and reassigning..." >&2
+        sed -i "/,${LAB_NAME},${SERVICE},${EXISTING_PORT}$/d" "${REGISTRY_FILE}" 2>/dev/null || true
+        # Fall through to new port assignment
+    else
+        echo "${EXISTING_PORT}"
+        exit 0
+    fi
+fi
+
 
 # -----------------------------------------------------------------------------
 # 5. ASSIGN NEW PORT
@@ -110,7 +126,7 @@ else
     CANDIDATE_PORT="9000"
 fi
 
-USED_PORTS=$(cut -d',' -f3 "${REGISTRY_FILE}" | tail -n +2 | sort -n | uniq || true)
+USED_PORTS=$(cut -d',' -f4 "${REGISTRY_FILE}" | tail -n +2 | sort -n | uniq || true)
 
 ASSIGNED_PORT=""
 MAX_ATTEMPTS=1000
@@ -144,5 +160,5 @@ fi
 # -----------------------------------------------------------------------------
 # 6. REGISTER AND RETURN
 # -----------------------------------------------------------------------------
-echo "$(date +%Y-%m-%d),${LAB_NAME},${ASSIGNED_PORT},${SERVICE}" >> "${REGISTRY_FILE}"
+echo "$(date +%Y-%m-%d),${LAB_NAME},${SERVICE},${ASSIGNED_PORT}" >> "${REGISTRY_FILE}"
 echo "${ASSIGNED_PORT}"

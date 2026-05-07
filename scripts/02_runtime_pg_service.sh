@@ -50,7 +50,7 @@ export PG_CUSTOM_CONF PG_LOG_DIR PG_RUN_DIR
 cat > "$PG_CUSTOM_CONF" <<EOF
 # --- Lab Factory Settings for $LAB_NAME ---
 port = $PG_PORT
-listen_addresses = 'localhost'
+listen_addresses = '${PG_LISTEN_ADDRESSES:=localhost}'
 unix_socket_directories = '${PG_RUN_DIR}'
 shared_buffers = ${PG_SHARED_BUFFERS}
 max_connections = ${PG_MAX_CONNECTIONS}

@@ -28,7 +28,7 @@ sudo apt install -y \
 PARENT_DIR="$(dirname "$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")")"
 : "${LAB_HOME:="${PARENT_DIR}/de_lab_testing"}"
 export LAB_HOME
-mkdir -p "$LAB_HOME"/{bin,configs,data,logs,venvs,secrets}
+mkdir -p "$LAB_HOME"/{bin,configs,data,logs,run,venvs,secrets}
 
 
 # Define the path for the DE Platform .gitignore
@@ -39,6 +39,7 @@ if [[ ! -f "$PLATFORM_GITIGNORE" ]]; then
 # Auto-generated git protection by Bootstrap Script 00_base_setup.sh
 data/
 logs/
+run/
 secrets/
 venvs/
 *.env
