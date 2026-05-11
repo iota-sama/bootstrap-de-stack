@@ -26,11 +26,11 @@ are isolated into logical layers to ensure portability and high availability.
     health-checked scheduler and API server processes. Delivers lab in cold state
     — user starts services on demand via generated entry point.
 
-### Phase 4: Streaming (PLANNED)
+### Phase 4: Streaming (IN DEVELOPMENT - Code Complete, Review and Testing Ongoing)
 *   **Apache Kafka/KRaft:** High-throughput event backbone for real-time
-    ingestion.
-    *   **Schema Registry (Apicurio):** Schema management with Avro
-        serialization for data governance.
+    ingestion with KRaft consensus (no ZooKeeper dependency).
+*   **Schema Registry (Apicurio):** Schema management and data governance
+    with Apache 2.0-licensed registry.
 *   **Debezium (CDC):** Change Data Capture connector for streaming PostgreSQL
     changes into Kafka topics using logical replication.
 
@@ -46,7 +46,7 @@ are isolated into logical layers to ensure portability and high availability.
 *   **Object Storage:** MinIO (S3-compatible) for local blob/document storage.
 *   **Containerization:** Docker Compose deployment profile for cross-platform
     portability.
-*   **Cloud Connectors:** AWS S3 integration.
+*   **Cloud Connectors:** AWS integration.
 *   **NoSQL & Graph:** MongoDB, Neo4j for document and graph workloads.
 
 ## Quick Start
@@ -61,7 +61,7 @@ are isolated into logical layers to ensure portability and high availability.
 5.  **Stop Your Lab:**
     `bash <LAB_HOME>/bin/lab_shutdown.sh`
 6.  **Delete a Lab:**
-    `bash utils/delete_lab.sh --lab-name <absolute-path-to-lab>`
+    `bash utils/delete_lab.sh --lab-path <absolute-path-to-lab> [--force]`
 
 ## What You Get
 
@@ -126,6 +126,7 @@ maintain, and extend.
 
 ## Directory Structure
 ```
+
 $LAB_HOME/
 ├── bin/
 │   ├── lab_entry.sh          # Start all lab services
@@ -148,7 +149,8 @@ $LAB_HOME/
 ├── venvs/
 │   └── airflow/              # Airflow Python virtual environment
 └── secrets/
-    └── generated.env         # All auto-generated credentials
+└── generated.env         # All auto-generated credentials
+
 ```
 
 ## Requirements
@@ -196,12 +198,6 @@ does not provide structured logging, log rotation, or centralized
 aggregation. Comprehensive observability — including structured logging,
 metrics collection, and alerting — is planned for Phase 6.
 
-**No authentication on Airflow API server:**
-The Airflow API server runs without user authentication. Anyone with
-access to the lab machine can reach the Airflow UI and trigger DAGs.
-This is acceptable for a local or shared lab environment. Adding
-authentication is a planned enhancement.
-
 **No automated backups:**
 The lab does not include backup or disaster recovery mechanisms. Users
 are responsible for backing up their data directories and DAG files.
@@ -223,7 +219,7 @@ isolated on a separate instance.
 ## Status
 
 This project is in active solo development. Phases 1-3 are complete.
-Phase 4 (Kafka, Schema Registry, Debezium) is planned.
+Phase 4 (Kafka, Schema Registry, Debezium) is in active development.
 See [CHANGELOG.md](CHANGELOG.md) for details.
 
 Feedback and bug reports are welcome via
@@ -231,5 +227,4 @@ Feedback and bug reports are welcome via
 
 ## License
 
-MIT License — see [LICENSE](LICENSE) for details.
-
+Apache License 2.0 — see [LICENSE](LICENSE) for details.

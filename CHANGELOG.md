@@ -9,13 +9,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] — Phase 4: Streaming (Apache Kafka + Debezium + Schema Registry)
 
-### Planned
-- Apache Kafka deployment with KRaft consensus (no ZooKeeper dependency)
+### STATUS - Code Complete, Review and Testing Ongoing
+- Apache Kafka 4.0.x deployment with KRaft consensus (no ZooKeeper dependency)
 - Debezium CDC connector for streaming PostgreSQL changes into Kafka topics
-- Schema Registry (Apicurio) with Avro serialization for data governance
-- Kafka connection seeding in Airflow
-- Port discovery via registry for Kafka broker and Schema Registry
-- Health-checked Kafka broker startup with graceful shutdown
+- Schema Registry (Apicurio) with Avro serialization and data governance
+- Kafka SASL/PLAIN authentication for multi-user lab scenarios
+- Per-lab pinned JDK provisioning (Java 17+)
+- Kafka connection and Schema Registry connection seeding in Airflow
+- Integration tests for CDC pipeline validation
+- Port discovery via registry for Kafka broker, controller, Schema Registry, and Kafka Connect
+- WAL health checks on lab startup and shutdown
+
+---
+
+## [0.3.1] — 2026-05-11
+
+### Changed
+- License changed from MIT to Apache License 2.0
+- README: Phase 4 status updated to IN PROGRESS
+- README: Quick Start corrected — `delete_lab.sh` usage now shows `--lab-path` (was `--lab-name`) with optional `[--force]` flag
+- README: Removed incorrect Known Limitation about Airflow API server lacking authentication (Airflow 3.x includes FAB authentication by default)
 
 ---
 
