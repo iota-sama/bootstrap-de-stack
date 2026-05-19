@@ -23,7 +23,7 @@ fi
 : "${PG_PORT:?PG_PORT is not set. Ensure 02_runtime_pg_service.sh ran.}"
 : "${STACK_ID:?STACK_ID is not set. Ensure 00_base_setup.sh ran.}"
 : "${ENV_NAME:?ENV_NAME is not set. Check settings.env.}"
-: "${PG_RUN_DIR:?PG_RUN_DIR is not set. Ensure 02_runtime_pg_service.sh ran.}"
+: "${PG_RUNTIME_DIR:?PG_RUNTIME_DIR is not set. Ensure 02_runtime_pg_service.sh ran.}"
 
 SECRET_FILE="${LAB_HOME}/secrets/generated.env"
 
@@ -76,7 +76,7 @@ PG_LAB_PASS_SAFE="${PG_LAB_PASS//\'/\'\'}"
 # -----------------------------------------------------------------------------
 echo "[INFO] Creating role and database (if not exists)..."
 
-"${PG_BIN_PATH}/psql" -h "${PG_RUN_DIR}" -p "${PG_PORT}" -d postgres -t <<EOF
+"${PG_BIN_PATH}/psql" -h "${PG_RUNTIME_DIR}" -p "${PG_PORT}" -d postgres -t <<EOF
 -- Create the Admin Role
 DO \$\$
 BEGIN
@@ -105,7 +105,7 @@ echo "[INFO] Initializing Medallion Architecture schemas..."
 SCHEMAS=("raw" "staging" "analytics")
 
 for schema in "${SCHEMAS[@]}"; do
-    "${PG_BIN_PATH}/psql" -h "${PG_RUN_DIR}" -p "${PG_PORT}" -d "${PG_LAB_DB}" -t \
+    "${PG_BIN_PATH}/psql" -h "${PG_RUNTIME_DIR}" -p "${PG_PORT}" -d "${PG_LAB_DB}" -t \
         -c "CREATE SCHEMA IF NOT EXISTS ${schema} AUTHORIZATION ${PG_LAB_USER};"
     echo "  [OK] Schema: ${schema}"
 done

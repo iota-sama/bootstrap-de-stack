@@ -21,7 +21,7 @@ fi
 : "${PGDATA:?PGDATA is not set. Ensure 01_setup_pg_engine.sh ran.}"
 : "${PG_BIN_PATH:?PG_BIN_PATH is not set. Ensure 01_setup_pg_engine.sh ran.}"
 : "${PG_PORT:?PG_PORT is not set. Ensure 02_runtime_pg_service.sh ran.}"
-: "${PG_RUN_DIR:?PG_RUN_DIR is not set. Ensure 02_runtime_pg_service.sh ran.}"
+: "${PG_RUNTIME_DIR:?PG_RUNTIME_DIR is not set. Ensure 02_runtime_pg_service.sh ran.}"
 : "${STACK_ID:?STACK_ID is not set. Ensure 00_base_setup.sh ran.}"
 : "${ENV_NAME:?ENV_NAME is not set. Check settings.env.}"
 : "${AIRFLOW_VENV:?AIRFLOW_VENV is not set. Ensure 04_setup_airflow_venv.sh ran.}"
@@ -80,7 +80,7 @@ AIRFLOW_DB_PASS_SAFE="${AIRFLOW_DB_PASS//\'/\'\'}"
 # -----------------------------------------------------------------------------
 echo "[INFO] Creating Airflow database role '${AIRFLOW_DB_USER}'..."
 
-"${PG_BIN_PATH}/psql" -h "${PG_RUN_DIR}" -p "${PG_PORT}" -d postgres -t <<EOF
+"${PG_BIN_PATH}/psql" -h "${PG_RUNTIME_DIR}" -p "${PG_PORT}" -d postgres -t <<EOF
 DO \$\$
 BEGIN
     IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = '${AIRFLOW_DB_USER}') THEN
@@ -101,7 +101,7 @@ echo "[SUCCESS] Airflow role provisioned."
 # -----------------------------------------------------------------------------
 echo "[INFO] Creating Airflow metadata database '${AIRFLOW_DB_NAME}'..."
 
-"${PG_BIN_PATH}/psql" -h "${PG_RUN_DIR}" -p "${PG_PORT}" -d postgres -t <<EOF
+"${PG_BIN_PATH}/psql" -h "${PG_RUNTIME_DIR}" -p "${PG_PORT}" -d postgres -t <<EOF
 SELECT 'CREATE DATABASE ${AIRFLOW_DB_NAME} OWNER ${AIRFLOW_DB_USER}'
 WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = '${AIRFLOW_DB_NAME}')
 \gexec
@@ -110,13 +110,13 @@ EOF
 echo "[SUCCESS] Airflow database created."
 
 # Grant ALL (Schema, Connect) on database to airflow user for migration
-"${PG_BIN_PATH}/psql" -h "${PG_RUN_DIR}" -p "${PG_PORT}" -d postgres -t <<EOF
+"${PG_BIN_PATH}/psql" -h "${PG_RUNTIME_DIR}" -p "${PG_PORT}" -d postgres -t <<EOF
 GRANT ALL PRIVILEGES ON DATABASE ${AIRFLOW_DB_NAME} TO ${AIRFLOW_DB_USER};
 EOF
 
 # The auto created public schema is still owned by the superuser, not by the database owner.
 # Grant full control to the Airflow user so db migrate can create/manage tables.
-"${PG_BIN_PATH}/psql" -h "${PG_RUN_DIR}" -p "${PG_PORT}" -d "${AIRFLOW_DB_NAME}" -t <<EOF
+"${PG_BIN_PATH}/psql" -h "${PG_RUNTIME_DIR}" -p "${PG_PORT}" -d "${AIRFLOW_DB_NAME}" -t <<EOF
 GRANT ALL ON SCHEMA public TO ${AIRFLOW_DB_USER};
 EOF
 

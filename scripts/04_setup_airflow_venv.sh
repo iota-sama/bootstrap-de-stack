@@ -17,7 +17,7 @@ set -euo pipefail
 : "${AIRFLOW_VERSION:="3.2.0"}"
 : "${PYTHON_BIN:="python3"}"
 
-AIRFLOW_VENV="${LAB_HOME}/venvs/airflow"
+AIRFLOW_VENV="${LAB_HOME}/engine/airflow"
 AIRFLOW_HOME="${LAB_HOME}/configs"
 export AIRFLOW_HOME AIRFLOW_VENV
 
@@ -57,7 +57,6 @@ fi
 # -----------------------------------------------------------------------------
 # 6. INSTALL AIRFLOW (Idempotent)
 # -----------------------------------------------------------------------------
-# Check if Airflow is already installed at the desired version
 AIRFLOW_CHECK=$("${AIRFLOW_VENV}/bin/pip" show apache-airflow 2>/dev/null | grep "^Version:" | awk '{print $2}' || true)
 
 if [[ "${AIRFLOW_CHECK}" == "${AIRFLOW_VERSION}" ]]; then
@@ -70,20 +69,15 @@ else
     echo "[INFO] Installing Apache Airflow ${AIRFLOW_VERSION} with constraints..."
     echo "[INFO] This may take several minutes. Please wait..."
 
-    # Construct the constraints URL
     CONSTRAINT_URL="https://raw.githubusercontent.com/apache/airflow/constraints-${AIRFLOW_VERSION}/constraints-${PYTHON_MAJOR}.${PYTHON_MINOR}.txt"
 
-    # Upgrade pip first
     "${AIRFLOW_VENV}/bin/pip" install --upgrade pip setuptools wheel --quiet
 
-    # Install Airflow with constraints
     if ! "${AIRFLOW_VENV}/bin/pip" install \
         "apache-airflow==${AIRFLOW_VERSION}" \
         --constraint "${CONSTRAINT_URL}" \
         --quiet > /dev/null 2>&1; then
         
-        # If constraints file isn't available yet for this exact patch version,
-        # try without constraints (Airflow will resolve dependencies itself)
         echo "[WARN] Constraints file not available. Installing without constraints..."
         "${AIRFLOW_VENV}/bin/pip" install "apache-airflow==${AIRFLOW_VERSION}"
     fi
@@ -112,8 +106,17 @@ else
     "${AIRFLOW_VENV}/bin/pip" install --quiet "apache-airflow-providers-postgres"
 fi
 
+# Install Apache Kafka provider for streaming integration (Phase 4)
+if "${AIRFLOW_VENV}/bin/airflow" providers list 2>/dev/null | grep -q "apache.kafka"; then
+    echo "[INFO] Apache Kafka provider detected."
+else
+    echo "[INFO] Installing Apache Kafka provider..."
+    "${AIRFLOW_VENV}/bin/pip" install --quiet "apache-airflow-providers-apache-kafka"
+    echo "[SUCCESS] Apache Kafka provider installed."
+fi
+
 # -----------------------------------------------------------------------------
-# 8. SUMMERY
+# 8. SUMMARY
 # -----------------------------------------------------------------------------
 
 echo "[SUCCESS] Script 04: Airflow virtual environment is ready."

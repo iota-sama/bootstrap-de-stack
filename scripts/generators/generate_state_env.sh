@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # @description: Generates the lab state file (state.env).
-#              Sourced by 98_assemble_lab.sh — inherits all variables.
+#              Sourced by 97_assemble_lab.sh — inherits all variables.
 # @generator: generate_state_env.sh
 # @author: [Nishchay Dubey/iota-sama]
 
@@ -9,7 +9,7 @@ set -euo pipefail
 # -----------------------------------------------------------------------------
 # 1. ENVIRONMENT VALIDATION
 # -----------------------------------------------------------------------------
-: "${LAB_HOME:?LAB_HOME is not set. Run via 98_assemble_lab.sh}"
+: "${LAB_HOME:?LAB_HOME is not set. Run via 97_assemble_lab.sh}"
 : "${STACK_ID:?STACK_ID is not set.}"
 : "${ENV_NAME:?ENV_NAME is not set.}"
 
@@ -20,7 +20,7 @@ set -euo pipefail
 : "${PG_PORT:?PG_PORT is not set.}"
 : "${PG_LAB_USER:?PG_LAB_USER is not set.}"
 : "${PG_LAB_DB:?PG_LAB_DB is not set.}"
-: "${PG_RUN_DIR:?PG_RUN_DIR is not set.}"
+: "${PG_RUNTIME_DIR:?PG_RUNTIME_DIR is not set.}"
 : "${PG_LOG_DIR:?PG_LOG_DIR is not set.}"
 : "${PG_CUSTOM_CONF:?PG_CUSTOM_CONF is not set.}"
 
@@ -34,7 +34,46 @@ set -euo pipefail
 : "${AIRFLOW_DB_NAME:?AIRFLOW_DB_NAME is not set.}"
 : "${AIRFLOW_POSTGRES_CONN_ID:?AIRFLOW_POSTGRES_CONN_ID is not set.}"
 : "${AIRFLOW_LOG_DIR:?AIRFLOW_LOG_DIR is not set.}"
-: "${AIRFLOW_RUN_DIR:?AIRFLOW_RUN_DIR is not set.}"
+: "${AIRFLOW_RUNTIME_DIR:?AIRFLOW_RUNTIME_DIR is not set.}"
+
+# Java variables
+: "${JAVA_HOME:?JAVA_HOME is not set.}"
+: "${JAVA_MAJOR:?JAVA_MAJOR is not set.}"
+
+# Kafka variables
+: "${KAFKA_VERSION:?KAFKA_VERSION is not set.}"
+: "${KAFKA_SCALA_VERSION:?KAFKA_SCALA_VERSION is not set.}"
+: "${KAFKA_PORT:?KAFKA_PORT is not set.}"
+: "${KAFKA_CONTROLLER_PORT:?KAFKA_CONTROLLER_PORT is not set.}"
+: "${KAFKA_INTERNAL_PORT:?KAFKA_INTERNAL_PORT is not set.}"
+: "${KAFKA_HOME:?KAFKA_HOME is not set.}"
+: "${KAFKA_DATA_DIR:?KAFKA_DATA_DIR is not set.}"
+: "${KAFKA_BIN_PATH:?KAFKA_BIN_PATH is not set.}"
+: "${KAFKA_LOG_DIR:?KAFKA_LOG_DIR is not set.}"
+: "${KAFKA_RUNTIME_DIR:?KAFKA_RUNTIME_DIR is not set.}"
+: "${KAFKA_CONFIG_DIR:?KAFKA_CONFIG_DIR is not set.}"
+: "${KAFKA_CLUSTER_ID:?KAFKA_CLUSTER_ID is not set.}"
+: "${KAFKA_JAAS_FILE:?KAFKA_JAAS_FILE is not set.}"
+: "${KAFKA_CONN_ID:?KAFKA_CONN_ID is not set.}"
+
+# Schema Registry variables
+: "${SCHEMA_REGISTRY_VERSION:?SCHEMA_REGISTRY_VERSION is not set.}"
+: "${SCHEMA_REGISTRY_PORT:?SCHEMA_REGISTRY_PORT is not set.}"
+: "${SCHEMA_REGISTRY_MANAGEMENT_PORT:?SCHEMA_REGISTRY_MANAGEMENT_PORT is not set.}"
+: "${SCHEMA_REGISTRY_HOME:?SCHEMA_REGISTRY_HOME is not set.}"
+: "${SCHEMA_REGISTRY_LOG_DIR:?SCHEMA_REGISTRY_LOG_DIR is not set.}"
+: "${SCHEMA_REGISTRY_RUNTIME_DIR:?SCHEMA_REGISTRY_RUNTIME_DIR is not set.}"
+: "${SCHEMA_REGISTRY_URL:?SCHEMA_REGISTRY_URL is not set.}"
+: "${SCHEMA_REGISTRY_COMPAT_URL:?SCHEMA_REGISTRY_COMPAT_URL is not set.}"
+: "${SCHEMA_REGISTRY_CONN_ID:?SCHEMA_REGISTRY_CONN_ID is not set.}"
+
+# Connect & Debezium variables
+: "${DEBEZIUM_VERSION:?DEBEZIUM_VERSION is not set.}"
+: "${CONNECT_PORT:?CONNECT_PORT is not set.}"
+: "${CONNECT_LOG_DIR:?CONNECT_LOG_DIR is not set.}"
+: "${CONNECT_CONFIG_DIR:?CONNECT_CONFIG_DIR is not set.}"
+: "${CONNECT_RUNTIME_DIR:?CONNECT_RUNTIME_DIR is not set.}"
+: "${DEBEZIUM_CONNECTOR_NAME:?DEBEZIUM_CONNECTOR_NAME is not set.}"
 
 SECRET_FILE="${LAB_HOME}/secrets/generated.env"
 STATE_FILE="${LAB_HOME}/configs/state.env"
@@ -60,7 +99,7 @@ export PG_VERSION="${PG_VERSION}"
 export PG_PORT="${PG_PORT}"
 export PGDATA="${PGDATA}"
 export PG_BIN_PATH="${PG_BIN_PATH}"
-export PG_RUN_DIR="${PG_RUN_DIR}"
+export PG_RUNTIME_DIR="${PG_RUNTIME_DIR}"
 export PG_LOG_DIR="${PG_LOG_DIR}"
 export PG_CUSTOM_CONF="${PG_CUSTOM_CONF}"
 
@@ -80,8 +119,47 @@ export AIRFLOW_DAGS_FOLDER="${AIRFLOW_DAGS_FOLDER}"
 export AIRFLOW_DB_USER="${AIRFLOW_DB_USER}"
 export AIRFLOW_DB_NAME="${AIRFLOW_DB_NAME}"
 export AIRFLOW_LOG_DIR="${AIRFLOW_LOG_DIR}"
-export AIRFLOW_RUN_DIR="${AIRFLOW_RUN_DIR}"
+export AIRFLOW_RUNTIME_DIR="${AIRFLOW_RUNTIME_DIR}"
 export AIRFLOW_POSTGRES_CONN_ID="${AIRFLOW_POSTGRES_CONN_ID}"
+
+# Java Configuration
+export JAVA_HOME="${JAVA_HOME}"
+export JAVA_MAJOR="${JAVA_MAJOR}"
+
+# Kafka Configuration
+export KAFKA_VERSION="${KAFKA_VERSION}"
+export KAFKA_SCALA_VERSION="${KAFKA_SCALA_VERSION}"
+export KAFKA_PORT="${KAFKA_PORT}"
+export KAFKA_CONTROLLER_PORT="${KAFKA_CONTROLLER_PORT}"
+export KAFKA_INTERNAL_PORT="${KAFKA_INTERNAL_PORT}"
+export KAFKA_HOME="${KAFKA_HOME}"
+export KAFKA_DATA_DIR="${KAFKA_DATA_DIR}"
+export KAFKA_BIN_PATH="${KAFKA_BIN_PATH}"
+export KAFKA_LOG_DIR="${KAFKA_LOG_DIR}"
+export KAFKA_RUNTIME_DIR="${KAFKA_RUNTIME_DIR}"
+export KAFKA_CONFIG_DIR="${KAFKA_CONFIG_DIR}"
+export KAFKA_CLUSTER_ID="${KAFKA_CLUSTER_ID}"
+export KAFKA_JAAS_FILE="${KAFKA_JAAS_FILE}"
+
+# Schema Registry Configuration
+export SCHEMA_REGISTRY_VERSION="${SCHEMA_REGISTRY_VERSION}"
+export SCHEMA_REGISTRY_PORT="${SCHEMA_REGISTRY_PORT}"
+export SCHEMA_REGISTRY_MANAGEMENT_PORT="${SCHEMA_REGISTRY_MANAGEMENT_PORT}"
+export SCHEMA_REGISTRY_HOME="${SCHEMA_REGISTRY_HOME}"
+export SCHEMA_REGISTRY_LOG_DIR="${SCHEMA_REGISTRY_LOG_DIR}"
+export SCHEMA_REGISTRY_RUNTIME_DIR="${SCHEMA_REGISTRY_RUNTIME_DIR}"
+export SCHEMA_REGISTRY_URL="${SCHEMA_REGISTRY_URL}"
+export SCHEMA_REGISTRY_COMPAT_URL="${SCHEMA_REGISTRY_COMPAT_URL}"
+
+# Kafka Connect & Debezium Configuration
+export DEBEZIUM_VERSION="${DEBEZIUM_VERSION}"
+export CONNECT_PORT="${CONNECT_PORT}"
+export CONNECT_LOG_DIR="${CONNECT_LOG_DIR}"
+export CONNECT_CONFIG_DIR="${CONNECT_CONFIG_DIR}"
+export CONNECT_RUNTIME_DIR="${CONNECT_RUNTIME_DIR}"
+export DEBEZIUM_CONNECTOR_NAME="${DEBEZIUM_CONNECTOR_NAME}"
+export KAFKA_CONN_ID="${KAFKA_CONN_ID}"
+export SCHEMA_REGISTRY_CONN_ID="${SCHEMA_REGISTRY_CONN_ID}"
 INNEREOF
 
 echo "[INFO] State file generated: ${STATE_FILE}"

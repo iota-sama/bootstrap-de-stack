@@ -3,7 +3,7 @@ set -euo pipefail
 
 # @description: Assembles the lab by orchestrating all generator scripts.
 #              Creates directories, state, entry point, config, and shutdown script.
-# @script: 98_assemble_lab.sh
+# @script: 97_assemble_lab.sh
 # @author: [Nishchay Dubey/iota-sama]
 
 # -----------------------------------------------------------------------------

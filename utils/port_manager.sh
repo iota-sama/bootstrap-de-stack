@@ -113,7 +113,12 @@ fi
 declare -A DEFAULT_PORTS=(
     ["postgres"]="5432"
     ["airflow"]="8080"
-    ["kafka"]="9092"
+    ["kafka_broker"]="9092"
+    ["kafka_controller"]="9093"
+    ['kafka_internal']="9094"
+    ["schema_registry"]="8081"
+    ["schema_registry_management"]="9000"
+    ["kafka_connect"]="8083"
     ["spark_master"]="7077"
     ["spark_ui"]="8080"
 )

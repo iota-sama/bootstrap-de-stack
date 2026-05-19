@@ -25,11 +25,9 @@ LAB_NAME=$(basename "$LAB_HOME")
 # -----------------------------------------------------------------------------
 # 2. PORT DISCOVERY
 # -----------------------------------------------------------------------------
-if [[ -z "${AIRFLOW_PORT:-}" ]]; then
-    echo "[INFO] AIRFLOW_PORT not found. Discovering via port_manager.sh..."
-    AIRFLOW_PORT=$("${BOOTSTRAP_DIR}/utils/port_manager.sh" --service airflow --lab-name "${LAB_NAME}")
-    export AIRFLOW_PORT
-fi
+echo "[INFO]  Discovering AIRFLOW_PORT via port_manager.sh..."
+AIRFLOW_PORT=$("${BOOTSTRAP_DIR}/utils/port_manager.sh" --service airflow --lab-name "${LAB_NAME}")
+export AIRFLOW_PORT
 
 # Validate port is numeric
 if ! [[ "$AIRFLOW_PORT" =~ ^[0-9]+$ ]]; then
@@ -54,13 +52,13 @@ export AIRFLOW__API__PORT="${AIRFLOW_PORT}"
 
 # Runtime directories (idempotent)
 AIRFLOW_LOG_DIR="${LAB_HOME}/logs/airflow"
-AIRFLOW_RUN_DIR="${LAB_HOME}/run/airflow"
+AIRFLOW_RUNTIME_DIR="${LAB_HOME}/runtime/airflow"
 mkdir -p "${AIRFLOW_LOG_DIR}"
-mkdir -p "${AIRFLOW_RUN_DIR}"
+mkdir -p "${AIRFLOW_RUNTIME_DIR}"
 
 # PID file paths for process management
-AIRFLOW_API_SERVER_PID="${AIRFLOW_RUN_DIR}/airflow-api-server.pid"
-AIRFLOW_SCHEDULER_PID="${AIRFLOW_RUN_DIR}/airflow-scheduler.pid"
+AIRFLOW_API_SERVER_PID="${AIRFLOW_RUNTIME_DIR}/airflow-api-server.pid"
+AIRFLOW_SCHEDULER_PID="${AIRFLOW_RUNTIME_DIR}/airflow-scheduler.pid"
 
 
 # -----------------------------------------------------------------------------
@@ -176,7 +174,7 @@ export AIRFLOW_PORT
 export AIRFLOW_API_SERVER_PID
 export AIRFLOW_SCHEDULER_PID
 export AIRFLOW_LOG_DIR
-export AIRFLOW_RUN_DIR
+export AIRFLOW_RUNTIME_DIR
 
 echo "[SUCCESS] Script 07: Airflow runtime is active."
 echo "  API Server: http://localhost:${AIRFLOW_PORT}"

@@ -15,20 +15,20 @@ fi
 
 export DEBIAN_FRONTEND=noninteractive
 
-# Install or Update needed tools
+# Install or Update needed tools (default-jdk removed — lab manages its own JDK)
 sudo apt update
 sudo apt install -y \
   ca-certificates curl wget gnupg lsb-release software-properties-common \
   git build-essential unzip jq \
   python3 python3-venv python3-pip \
-  default-jdk uuid-runtime
+  uuid-runtime
 
 
 # Create idempotent and absolute directory hierarchy
 PARENT_DIR="$(dirname "$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")")"
 : "${LAB_HOME:="${PARENT_DIR}/de_lab_testing"}"
 export LAB_HOME
-mkdir -p "$LAB_HOME"/{bin,configs,data,logs,run,venvs,secrets}
+mkdir -p "$LAB_HOME"/{bin,configs,data,engine,logs,runtime,secrets}
 
 
 # Define the path for the DE Platform .gitignore
@@ -39,9 +39,9 @@ if [[ ! -f "$PLATFORM_GITIGNORE" ]]; then
 # Auto-generated git protection by Bootstrap Script 00_base_setup.sh
 data/
 logs/
-run/
+runtime/
 secrets/
-venvs/
+engine/
 *.env
 EOF
   echo "[INFO] Created .gitignore in platform folder."
@@ -56,6 +56,7 @@ STACK_ID=$(uuidgen 2>/dev/null || echo "env-$(date +%s)")
 # Generate DE Platform Secrets File with Strict Permissions
 : "${SECRET_FILE:="${LAB_HOME}/secrets/generated.env"}"
 if [[ ! -f "$SECRET_FILE" ]]; then
+  OLD_UMASK=$(umask)
   umask 077
   cat > "$SECRET_FILE" <<EOF
 # ==========================================================
@@ -75,6 +76,7 @@ GEN_DATE=$(date +"%Y-%m-%d-%H:%M:%S-%Z")
 ENV_NAME=$ENV_NAME
 STACK_ID=$STACK_ID
 EOF
+  umask "${OLD_UMASK}"
 fi
 
 export STACK_ID ENV_NAME

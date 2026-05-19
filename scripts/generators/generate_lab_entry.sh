@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # @description: Generates the lab entry point script (lab_entry.sh).
-#              Produces Airflow-aware variant if Airflow is provisioned.
-#              Sourced by 98_assemble_lab.sh — inherits all variables.
+#              Produces streaming-aware variant with SASL and Avro support.
+#              Sourced by 97_assemble_lab.sh — inherits all variables.
 # @generator: generate_lab_entry.sh
 # @author: [Nishchay Dubey/iota-sama]
 
@@ -10,31 +10,10 @@ set -euo pipefail
 # -----------------------------------------------------------------------------
 # 1. ENVIRONMENT VALIDATION
 # -----------------------------------------------------------------------------
-: "${LAB_HOME:?LAB_HOME is not set. Run via 98_assemble_lab.sh}"
+: "${LAB_HOME:?LAB_HOME is not set. Run via 97_assemble_lab.sh}"
 : "${SECRET_FILE:?SECRET_FILE is not set.}"
 : "${STACK_ID:?STACK_ID is not set.}"
 : "${ENV_NAME:?ENV_NAME is not set.}"
-
-# PostgreSQL variables
-: "${PG_PORT:?PG_PORT is not set.}"
-: "${PG_LAB_USER:?PG_LAB_USER is not set.}"
-: "${PG_LAB_DB:?PG_LAB_DB is not set.}"
-: "${PGDATA:?PGDATA is not set.}"
-: "${PG_BIN_PATH:?PG_BIN_PATH is not set.}"
-: "${PG_LOG_DIR:?PG_LOG_DIR is not set.}"
-
-# Airflow variables
-: "${AIRFLOW_PORT:?AIRFLOW_PORT is not set.}"
-: "${AIRFLOW_VENV:?AIRFLOW_VENV is not set.}"
-: "${AIRFLOW_HOME:?AIRFLOW_HOME is not set.}"
-: "${AIRFLOW_CFG:?AIRFLOW_CFG is not set.}"
-: "${AIRFLOW_DAGS_FOLDER:?AIRFLOW_DAGS_FOLDER is not set.}"
-: "${AIRFLOW_LOG_DIR:?AIRFLOW_LOG_DIR is not set.}"
-: "${AIRFLOW_RUN_DIR:?AIRFLOW_RUN_DIR is not set.}"
-: "${AIRFLOW_DB_USER:?AIRFLOW_DB_USER is not set.}"
-: "${AIRFLOW_DB_NAME:?AIRFLOW_DB_NAME is not set.}"
-: "${AIRFLOW_POSTGRES_CONN_ID:?AIRFLOW_POSTGRES_CONN_ID is not set.}"
-
 
 : "${ENTRY_SCRIPT:="${LAB_HOME}/bin/lab_entry.sh"}"
 
@@ -77,6 +56,44 @@ if [[ -f "${LAB_HOME}/configs/lab_config.sh" ]]; then
     source "${LAB_HOME}/configs/lab_config.sh"
 fi
 
+# If the lab has been moved, update absolute paths in config files
+if [[ -n "${LAB_HOME:-}" ]] && [[ -f "${LAB_HOME}/configs/state.env" ]]; then
+    OLD_LAB_HOME=$(grep "^export LAB_HOME=" "${LAB_HOME}/configs/state.env" 2>/dev/null | cut -d'"' -f2 || true)
+    
+    if [[ -n "${OLD_LAB_HOME}" ]] && [[ "${OLD_LAB_HOME}" != "${LAB_HOME}" ]]; then
+        echo "[INFO] Lab appears to have moved from ${OLD_LAB_HOME} to ${LAB_HOME}"
+        echo "[INFO] Updating paths in configuration files..."
+        
+        # PostgreSQL custom config
+        if [[ -f "${LAB_HOME}/data/postgres/custom_lab.conf" ]]; then
+            sed -i "s|${OLD_LAB_HOME}|${LAB_HOME}|g" "${LAB_HOME}/data/postgres/custom_lab.conf"
+        fi
+        
+        # Kafka server.properties
+        if [[ -f "${LAB_HOME}/configs/kafka/server.properties" ]]; then
+            sed -i "s|${OLD_LAB_HOME}|${LAB_HOME}|g" "${LAB_HOME}/configs/kafka/server.properties"
+        fi
+        
+        # Connect distributed properties
+        if [[ -f "${LAB_HOME}/configs/connect/connect-distributed.properties" ]]; then
+            sed -i "s|${OLD_LAB_HOME}|${LAB_HOME}|g" "${LAB_HOME}/configs/connect/connect-distributed.properties"
+        fi
+        
+        # Airflow config
+        if [[ -f "${LAB_HOME}/configs/airflow.cfg" ]]; then
+            sed -i "s|${OLD_LAB_HOME}|${LAB_HOME}|g" "${LAB_HOME}/configs/airflow.cfg"
+        fi
+        
+        # Update state.env with new LAB_HOME
+        sed -i "s|^export LAB_HOME=.*|export LAB_HOME=\"${LAB_HOME}\"|" "${LAB_HOME}/configs/state.env"
+        
+        # Reload state with corrected paths
+        source "${LAB_HOME}/configs/state.env"
+        
+        echo "[INFO] Path update complete."
+    fi
+fi
+
 # Start PostgreSQL if not already running
 if "${PG_BIN_PATH}/pg_isready" -p "${PG_PORT}" -h localhost >/dev/null 2>&1; then
     echo "[INFO] PostgreSQL is already running on port ${PG_PORT}."
@@ -92,31 +109,116 @@ export AIRFLOW__DATABASE__SQL_ALCHEMY_CONN="postgresql://${AIRFLOW_DB_USER}:${AI
 export AIRFLOW__API__PORT="${AIRFLOW_PORT}"
 
 # Start scheduler if not running
-if [[ -f "${AIRFLOW_RUN_DIR}/airflow-scheduler.pid" ]]; then
-    SCHED_PID=$(cat "${AIRFLOW_RUN_DIR}/airflow-scheduler.pid")
+if [[ -f "${AIRFLOW_RUNTIME_DIR}/airflow-scheduler.pid" ]]; then
+    SCHED_PID=$(cat "${AIRFLOW_RUNTIME_DIR}/airflow-scheduler.pid")
     if kill -0 "${SCHED_PID}" 2>/dev/null; then
         echo "[INFO] Airflow scheduler is already running (PID: ${SCHED_PID})."
     else
         echo "[INFO] Starting Airflow scheduler..."
-        "${AIRFLOW_VENV}/bin/airflow" scheduler --pid "${AIRFLOW_RUN_DIR}/airflow-scheduler.pid" -D
+        "${AIRFLOW_VENV}/bin/airflow" scheduler --pid "${AIRFLOW_RUNTIME_DIR}/airflow-scheduler.pid" -D
     fi
 else
     echo "[INFO] Starting Airflow scheduler..."
-    "${AIRFLOW_VENV}/bin/airflow" scheduler --pid "${AIRFLOW_RUN_DIR}/airflow-scheduler.pid" -D
+    "${AIRFLOW_VENV}/bin/airflow" scheduler --pid "${AIRFLOW_RUNTIME_DIR}/airflow-scheduler.pid" -D
 fi
 
 # Start API server if not running
-if [[ -f "${AIRFLOW_RUN_DIR}/airflow-api-server.pid" ]]; then
-    API_PID=$(cat "${AIRFLOW_RUN_DIR}/airflow-api-server.pid")
+if [[ -f "${AIRFLOW_RUNTIME_DIR}/airflow-api-server.pid" ]]; then
+    API_PID=$(cat "${AIRFLOW_RUNTIME_DIR}/airflow-api-server.pid")
     if kill -0 "${API_PID}" 2>/dev/null; then
         echo "[INFO] Airflow API server is already running (PID: ${API_PID})."
     else
         echo "[INFO] Starting Airflow API server..."
-        "${AIRFLOW_VENV}/bin/airflow" api-server --port "${AIRFLOW_PORT}" --pid "${AIRFLOW_RUN_DIR}/airflow-api-server.pid" -D
+        "${AIRFLOW_VENV}/bin/airflow" api-server --port "${AIRFLOW_PORT}" --pid "${AIRFLOW_RUNTIME_DIR}/airflow-api-server.pid" -D
     fi
 else
     echo "[INFO] Starting Airflow API server..."
-    "${AIRFLOW_VENV}/bin/airflow" api-server --port "${AIRFLOW_PORT}" --pid "${AIRFLOW_RUN_DIR}/airflow-api-server.pid" -D
+    "${AIRFLOW_VENV}/bin/airflow" api-server --port "${AIRFLOW_PORT}" --pid "${AIRFLOW_RUNTIME_DIR}/airflow-api-server.pid" -D
+fi
+
+# -----------------------------------------------------------------------------
+# START STREAMING SERVICES (if provisioned and enabled)
+# -----------------------------------------------------------------------------
+START_STREAMING_SERVICES="${START_STREAMING_SERVICES:-true}"
+
+if [[ "${START_STREAMING_SERVICES}" == "true" ]]; then
+    # Start Kafka broker
+    if [[ -n "${KAFKA_PORT:-}" ]] && [[ -n "${KAFKA_BIN_PATH:-}" ]]; then
+        if [[ -f "${KAFKA_RUNTIME_DIR}/kafka.pid" ]]; then
+            KAFKA_PID=$(cat "${KAFKA_RUNTIME_DIR}/kafka.pid")
+            if kill -0 "${KAFKA_PID}" 2>/dev/null; then
+                echo "[INFO] Kafka broker already running (PID: ${KAFKA_PID})."
+            else
+                echo "[INFO] Starting Kafka broker..."
+                export KAFKA_HEAP_OPTS="${KAFKA_HEAP_OPTS:--Xmx512M -Xms256M}"
+                export LOG_DIR="${KAFKA_LOG_DIR}"
+                if [[ -n "${KAFKA_JAAS_FILE:-}" ]]; then
+                    export KAFKA_OPTS="-Djava.security.auth.login.config=${KAFKA_JAAS_FILE}"
+                fi
+                nohup "${KAFKA_BIN_PATH}/kafka-server-start.sh" "${KAFKA_CONFIG_DIR}/server.properties" > "${KAFKA_LOG_DIR}/kafka-startup.log" 2>&1 &
+                echo $! > "${KAFKA_RUNTIME_DIR}/kafka.pid"
+            fi
+        else
+            echo "[INFO] Starting Kafka broker..."
+            export KAFKA_HEAP_OPTS="${KAFKA_HEAP_OPTS:--Xmx512M -Xms256M}"
+            export LOG_DIR="${KAFKA_LOG_DIR}"
+            if [[ -n "${KAFKA_JAAS_FILE:-}" ]]; then
+                export KAFKA_OPTS="-Djava.security.auth.login.config=${KAFKA_JAAS_FILE}"
+            fi
+            nohup "${KAFKA_BIN_PATH}/kafka-server-start.sh" "${KAFKA_CONFIG_DIR}/server.properties" > "${KAFKA_LOG_DIR}/kafka-startup.log" 2>&1 &
+            echo $! > "${KAFKA_RUNTIME_DIR}/kafka.pid"
+        fi
+    fi
+
+    # Start Schema Registry
+    if [[ -n "${SCHEMA_REGISTRY_PORT:-}" ]] && [[ -n "${SCHEMA_REGISTRY_HOME:-}" ]]; then
+        if [[ -f "${SCHEMA_REGISTRY_RUNTIME_DIR}/schema-registry.pid" ]]; then
+            SR_PID=$(cat "${SCHEMA_REGISTRY_RUNTIME_DIR}/schema-registry.pid")
+            if kill -0 "${SR_PID}" 2>/dev/null; then
+                echo "[INFO] Schema Registry already running (PID: ${SR_PID})."
+            else
+                echo "[INFO] Starting Schema Registry..."
+                export KAFKA_BOOTSTRAP_SERVERS="localhost:${KAFKA_PORT}"
+                export APICURIO_STORAGE_KAFKA_BOOTSTRAP_SERVERS="localhost:${KAFKA_PORT}"
+                export QUARKUS_HTTP_PORT="${SCHEMA_REGISTRY_PORT}"
+                export QUARKUS_MANAGEMENT_PORT="${SCHEMA_REGISTRY_MANAGEMENT_PORT}"
+                nohup java ${SCHEMA_REGISTRY_HEAP_OPTS:--Xmx256M -Xms128M} -jar "${SCHEMA_REGISTRY_HOME}/quarkus-app/quarkus-run.jar" > "${SCHEMA_REGISTRY_LOG_DIR}/schema-registry.log" 2>&1 &
+                echo $! > "${SCHEMA_REGISTRY_RUNTIME_DIR}/schema-registry.pid"
+            fi
+        else
+            echo "[INFO] Starting Schema Registry..."
+            export KAFKA_BOOTSTRAP_SERVERS="localhost:${KAFKA_PORT}"
+            export APICURIO_STORAGE_KAFKA_BOOTSTRAP_SERVERS="localhost:${KAFKA_PORT}"
+            export QUARKUS_HTTP_PORT="${SCHEMA_REGISTRY_PORT}"
+            export QUARKUS_MANAGEMENT_PORT="${SCHEMA_REGISTRY_MANAGEMENT_PORT}"
+            nohup java ${SCHEMA_REGISTRY_HEAP_OPTS:--Xmx256M -Xms128M} -jar "${SCHEMA_REGISTRY_HOME}/quarkus-app/quarkus-run.jar" > "${SCHEMA_REGISTRY_LOG_DIR}/schema-registry.log" 2>&1 &
+            echo $! > "${SCHEMA_REGISTRY_RUNTIME_DIR}/schema-registry.pid"
+        fi
+    fi
+
+    # Start Kafka Connect
+    if [[ -n "${CONNECT_PORT:-}" ]] && [[ -n "${KAFKA_HOME:-}" ]]; then
+        if [[ -f "${CONNECT_RUNTIME_DIR}/connect.pid" ]]; then
+            CONNECT_PID=$(cat "${CONNECT_RUNTIME_DIR}/connect.pid")
+            if kill -0 "${CONNECT_PID}" 2>/dev/null; then
+                echo "[INFO] Kafka Connect already running (PID: ${CONNECT_PID})."
+            else
+                echo "[INFO] Starting Kafka Connect..."
+                export KAFKA_HEAP_OPTS="${CONNECT_HEAP_OPTS:--Xmx512M -Xms256M}"
+                export LOG_DIR="${CONNECT_LOG_DIR}"
+                nohup "${KAFKA_HOME}/bin/connect-distributed.sh" "${CONNECT_CONFIG_DIR}/connect-distributed.properties" > "${CONNECT_LOG_DIR}/connect-startup.log" 2>&1 &
+                echo $! > "${CONNECT_RUNTIME_DIR}/connect.pid"
+            fi
+        else
+            echo "[INFO] Starting Kafka Connect..."
+            export KAFKA_HEAP_OPTS="${CONNECT_HEAP_OPTS:--Xmx512M -Xms256M}"
+            export LOG_DIR="${CONNECT_LOG_DIR}"
+            nohup "${KAFKA_HOME}/bin/connect-distributed.sh" "${CONNECT_CONFIG_DIR}/connect-distributed.properties" > "${CONNECT_LOG_DIR}/connect-startup.log" 2>&1 &
+            echo $! > "${CONNECT_RUNTIME_DIR}/connect.pid"
+        fi
+    fi
+else
+    echo "[INFO] Streaming services start disabled (START_STREAMING_SERVICES=false)."
 fi
 
 # Print summary
@@ -130,18 +232,33 @@ echo "    Port:     ${PG_PORT}"
 echo "    Database: ${PG_LAB_DB}"
 echo "    User:     ${PG_LAB_USER}"
 echo "    Connect:  psql -h localhost -p ${PG_PORT} -d ${PG_LAB_DB} -U ${PG_LAB_USER}"
-echo "    URL:      postgresql://${PG_LAB_USER}@localhost:${PG_PORT}/${PG_LAB_DB}"
 echo ""
 echo "  Airflow:"
 echo "    API Server: http://localhost:${AIRFLOW_PORT}"
 echo "    DAGs:       ${AIRFLOW_DAGS_FOLDER}"
 echo "    Logs:       ${AIRFLOW_LOG_DIR}"
 echo "    Config:     ${AIRFLOW_CFG}"
-echo "    Connection: ${AIRFLOW_POSTGRES_CONN_ID} → ${PG_LAB_DB} (user: ${PG_LAB_USER})"
+echo "    Connection: ${AIRFLOW_POSTGRES_CONN_ID} → ${PG_LAB_DB}"
 echo ""
-echo "  GUI Tool:  DBeaver (https://dbeaver.io)"
-echo "             Host: localhost | Port: ${PG_PORT} | Database: ${PG_LAB_DB}"
-echo "             Username: ${PG_LAB_USER} | Password: see ${SECRET_FILE}"
+echo "  Kafka:"
+echo "    Broker:     localhost:${KAFKA_PORT}"
+echo "    Auth:       SASL/PLAIN (user: ${KAFKA_ADMIN_USER})"
+echo ""
+echo "  Schema Registry (Apicurio):"
+echo "    Native API:  http://localhost:${SCHEMA_REGISTRY_PORT}"
+echo "    Confluent API: ${SCHEMA_REGISTRY_COMPAT_URL}"
+echo ""
+echo "  Kafka Connect & Debezium CDC:"
+echo "    REST API:   http://localhost:${CONNECT_PORT}"
+echo "    Connector:  ${DEBEZIUM_CONNECTOR_NAME}"
+echo "    Format:     Avro (Schema Registry)"
+echo "    Topics:     lab_${STACK_ID:0:8}.*"
+echo ""
+echo "  Airflow Connections:"
+echo "    Kafka:          ${KAFKA_CONN_ID}"
+echo "    Schema Registry: ${SCHEMA_REGISTRY_CONN_ID}"
+echo ""
+echo "  Test Results: ${LAB_HOME}/logs/test_results.log"
 echo ""
 echo "  Secrets:   ${SECRET_FILE}"
 echo "  Config:    ${LAB_HOME}/configs/lab_config.sh"

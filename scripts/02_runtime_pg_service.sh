@@ -16,12 +16,10 @@ set -euo pipefail
 
 LAB_NAME=$(basename "$LAB_HOME")
 
-# Port Discovery: Use existing or call port_manager
-if [[ -z "${PG_PORT:-}" ]]; then
-    echo "[INFO] PG_PORT not found. Discovering via port_manager.sh..."
-    PG_PORT=$("${BOOTSTRAP_DIR}/utils/port_manager.sh" --service postgres --lab-name "${LAB_NAME}")
-    export PG_PORT
-fi
+# Port Discovery: call port_manager
+echo "[INFO] Discovering PG_PORT not found via port_manager.sh..."
+PG_PORT=$("${BOOTSTRAP_DIR}/utils/port_manager.sh" --service postgres --lab-name "${LAB_NAME}")
+export PG_PORT
 
 # Validate port is numeric
 if ! [[ "$PG_PORT" =~ ^[0-9]+$ ]]; then
@@ -39,19 +37,19 @@ fi
 
 PG_CUSTOM_CONF="${PGDATA}/custom_lab.conf"
 PG_LOG_DIR="${LAB_HOME}/logs/postgres"
-PG_RUN_DIR="${LAB_HOME}/run/postgres"
+PG_RUNTIME_DIR="${LAB_HOME}/runtime/postgres"
 
 mkdir -p "${PG_LOG_DIR}"
-mkdir -p "${PG_RUN_DIR}"
+mkdir -p "${PG_RUNTIME_DIR}"
 
-export PG_CUSTOM_CONF PG_LOG_DIR PG_RUN_DIR
+export PG_CUSTOM_CONF PG_LOG_DIR PG_RUNTIME_DIR
 
-# Universal settings (Standard for PG 12 through 18)
+# Universal settings including logical replication for CDC
 cat > "$PG_CUSTOM_CONF" <<EOF
 # --- Lab Factory Settings for $LAB_NAME ---
 port = $PG_PORT
 listen_addresses = '${PG_LISTEN_ADDRESSES:=localhost}'
-unix_socket_directories = '${PG_RUN_DIR}'
+unix_socket_directories = '${PG_RUNTIME_DIR}'
 shared_buffers = ${PG_SHARED_BUFFERS}
 max_connections = ${PG_MAX_CONNECTIONS}
 
@@ -59,6 +57,14 @@ max_connections = ${PG_MAX_CONNECTIONS}
 logging_collector = on
 log_directory = '$PG_LOG_DIR'
 log_filename = 'postgresql-%Y-%m-%d.log'
+
+# --- Logical Replication (CDC) Settings ---
+# Required for Debezium CDC via logical replication slots.
+# wal_level=logical enables logical decoding of WAL changes.
+# Applied preemptively — negligible overhead when no replication slot is active.
+wal_level = logical
+max_wal_senders = 10
+max_replication_slots = 10
 EOF
 
 # Feature-flagged settings for Version 18+
@@ -67,7 +73,6 @@ if [[ "${PG_VERSION}" -ge 18 ]]; then
     cat >> "$PG_CUSTOM_CONF" <<EOF
 
 # PostgreSQL 18+ Specific Performance Tuning
-# io_method = 'io_uring' is faster but requires modern Linux Kernels (6.x+)
 io_method = 'worker'
 io_workers = 4
 EOF
